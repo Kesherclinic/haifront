@@ -393,7 +393,7 @@ export default function TestPage() {
         {(phase === "baseline" || phase === "baselineOutro") && (
           <video
             ref={baselineVideoRef}
-            src="/baseline/water.mp4"
+            src="https://firebasestorage.googleapis.com/v0/b/hai-app-2ebc3.firebasestorage.app/o/water.mp4?alt=media&token=816d676e-ae93-4c60-8cf9-7c535650cb6d"
             muted
             loop
             playsInline
