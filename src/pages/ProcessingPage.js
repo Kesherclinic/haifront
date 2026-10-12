@@ -34,6 +34,13 @@ export default function ProcessingPage() {
           clearInterval(poll);
           setTimeout(() => nav(`/results/${sessionId}`), 800);
         }
+        // "recorded" = גרסת "הקלטה בלבד" הנוכחית של השרת: הסרטון נשמר והועלה
+        // בהצלחה, אבל שלב הניתוח הביומטרי (שהיה מעדכן ל-"complete") מושבת
+        // בכוונה כרגע. לכן לא ממשיכים לדף תוצאות שעדיין לא קיים — מציגים
+        // מסך סיום/תודה במקום, ומפסיקים לבדוק (polling) כי אין למה לחכות עוד.
+        if (data.status === "recorded") {
+          clearInterval(poll);
+        }
         if (data.status === "error") {
           clearInterval(poll);
         }
@@ -56,6 +63,13 @@ export default function ProcessingPage() {
               <h2 style={{ marginBottom: "0.75rem" }}>שגיאה בניתוח</h2>
               <p style={{ marginBottom: "1.5rem" }}>{status.error || "אירעה שגיאה בעיבוד הוידאו"}</p>
               <button className="btn btn-secondary" onClick={() => nav("/")}>חזור להתחלה</button>
+            </>
+          ) : status.status === "recorded" ? (
+            <>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>✓</div>
+              <h2 style={{ marginBottom: "0.75rem" }}>תודה רבה!</h2>
+              <p style={{ marginBottom: "0.5rem" }}>הבדיקה הושלמה בהצלחה.</p>
+              <p style={{ color: "var(--ink-muted)" }}>ניתן לסגור את החלון כעת.</p>
             </>
           ) : (
             <>
