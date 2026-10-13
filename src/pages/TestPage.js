@@ -370,7 +370,23 @@ export default function TestPage() {
     const a = new Audio(content.audio);
     a.play().catch(() => {});
     audioRef.current = a;
-    return () => { a.pause(); audioRef.current = null; };
+    return () => {
+      // Fade the volume out instead of cutting playback instantly — an abrupt
+      // pause() lands wherever the waveform happens to be and can sound like
+      // a hard "click"/cutoff. The step right after audio is always a silent
+      // blank screen, so a short fade-out here has nowhere to clash.
+      const FADE_MS = 600;
+      const startVolume = a.volume;
+      const startTime = performance.now();
+      const fadeStep = () => {
+        const progress = Math.min(1, (performance.now() - startTime) / FADE_MS);
+        a.volume = startVolume * (1 - progress);
+        if (progress < 1) requestAnimationFrame(fadeStep);
+        else a.pause();
+      };
+      requestAnimationFrame(fadeStep);
+      audioRef.current = null;
+    };
   }, [phase, stepIdx, domainIdx]);
 
   if (camError) return (
