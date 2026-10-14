@@ -47,8 +47,14 @@ const STEP_KIND  = {
   audio: "audio", blank2: "blank", question: "question", blank3: "blank",
 };
 
-const REAL_DURATIONS     = { image1: 15, fade: 3, image2: 15, blank1: 10, audio: 41, blank2: 10, question: 60, blank3: 10 };
+const REAL_DURATIONS     = { image1: 15, fade: 3, image2: 15, blank1: 10, audio: 41, blank2: 5, question: 35, blank3: 10 };
 const PRACTICE_DURATIONS = { image1: 10, fade: 2, image2: 10, blank1: 5,  audio: 21, blank2: 5,  question: 30, blank3: 5  };
+
+// פיצול 10 שניות ה-blank3 (מסך אחרי שהנבדק מסיים לענות על תחום, בשלב הבדיקה
+// האמיתית בלבד — לא בתרגול) ל-3 תתי-שלבים: שחור / הודעת מעבר / שחור.
+// הסכום חייב להישאר שווה ל-REAL_DURATIONS.blank3 (10), כי זה עדיין אותו step
+// ואותו טיימר בדיוק — רק מה שמוצג על המסך משתנה באמצע.
+const BLANK3_MSG_DURATIONS = [2, 6, 2];
 
 // שלוש מסכי מעבר בין סוף התרגול לתחילת הבדיקה האמיתית:
 // "נגמר שלב התרגול" (5s) → "הבדיקה תתחיל בעוד מספר רגעים" (10s) → מסך שחור (5s)
@@ -448,11 +454,32 @@ export default function TestPage() {
           />
         )}
 
-        {activeSequence && stepKind === "blank" && (
+        {activeSequence && stepKind === "blank" && !(phase === "domain" && stepKey === "blank3") && (
           <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontSize: "2.5rem", color: "rgba(255,255,255,0.5)" }}>+</span>
           </div>
         )}
+
+        {/* blank3 בשלב הבדיקה האמיתית (לא בתרגול): במקום 10 שניות מסך שחור אחיד,
+            מתחלק ל-2 שניות שחור / 6 שניות הודעת מעבר / 2 שניות שחור — כדי שהנבדק
+            יישאר קצת יותר דרוך בין תחום לתחום, בלי להוסיף שום דבר למדידה בפועל
+            (עדיין אותם 10 שניות בסך הכל, אותו stepKey/timer). */}
+        {activeSequence && phase === "domain" && stepKey === "blank3" && (() => {
+          const elapsed = Math.max(0, stepDuration - secondsLeft); // ~0 → 10, מבוסס על אותו secondsLeft הקיים
+          const inMessageWindow =
+            elapsed >= BLANK3_MSG_DURATIONS[0] &&
+            elapsed < (BLANK3_MSG_DURATIONS[0] + BLANK3_MSG_DURATIONS[1]);
+          const isLastDomain = domainIdx + 1 >= domains.length;
+          return (
+            <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem" }}>
+              {inMessageWindow && (
+                <p style={{ fontSize: "1.7rem", textAlign: "center", lineHeight: 1.6, maxWidth: 720, color: "#fff" }}>
+                  {isLastDomain ? "הבדיקה עומדת להסתיים" : "עוברים לחלק הבא"}
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {activeSequence && stepKind === "audio" && (
           <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
