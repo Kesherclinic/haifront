@@ -47,8 +47,8 @@ const STEP_KIND  = {
   audio: "audio", blank2: "blank", question: "question", blank3: "blank",
 };
 
-const REAL_DURATIONS     = { image1: 15, fade: 3, image2: 15, blank1: 10, audio: 40, blank2: 10, question: 60, blank3: 10 };
-const PRACTICE_DURATIONS = { image1: 10, fade: 2, image2: 10, blank1: 5,  audio: 20, blank2: 5,  question: 30, blank3: 5  };
+const REAL_DURATIONS     = { image1: 15, fade: 3, image2: 15, blank1: 10, audio: 41, blank2: 10, question: 60, blank3: 10 };
+const PRACTICE_DURATIONS = { image1: 10, fade: 2, image2: 10, blank1: 5,  audio: 21, blank2: 5,  question: 30, blank3: 5  };
 
 // שלוש מסכי מעבר בין סוף התרגול לתחילת הבדיקה האמיתית:
 // "נגמר שלב התרגול" (5s) → "הבדיקה תתחיל בעוד מספר רגעים" (10s) → מסך שחור (5s)
@@ -124,13 +124,14 @@ export default function TestPage() {
     phase === "practice" ? practiceContent(gender) :
     phase === "domain"   ? domainContent(domains[domainIdx], gender) :
     null;
-  // HARD OVERRIDE — forces the real (non-practice) audio step to exactly 40s,
-  // bypassing REAL_DURATIONS entirely for this case. Temporary, to rule out
-  // any lookup issue: if this still doesn't show 40, the running bundle isn't
-  // this file at all.
+  // HARD OVERRIDE — forces the real (non-practice) audio step to exactly
+  // REAL_DURATIONS.audio, bypassing the rest of REAL_DURATIONS lookup for
+  // this one case. Kept in sync with REAL_DURATIONS.audio above (41s) so the
+  // audio clip (measured ~40.05s) always finishes before the step advances,
+  // instead of being cut a moment early.
   const stepDuration = stepKey
     ? (stepKey === "audio" && phase === "domain"
-        ? 40
+        ? REAL_DURATIONS.audio
         : (phase === "practice" ? PRACTICE_DURATIONS[stepKey] : REAL_DURATIONS[stepKey]))
     : 0;
 
