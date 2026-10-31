@@ -25,12 +25,6 @@ export default function CameraSetupPage() {
 
   const proceed = () => nav(`/test/${sessionId}?gender=${gender}`);
 
-  const silhouette =
-    "M 200 35 C 165 35 145 60 145 95 C 145 122 158 140 172 150 " +
-    "C 130 165 100 200 90 300 L 310 300 " +
-    "C 300 200 270 165 228 150 C 242 140 255 122 255 95 " +
-    "C 255 60 235 35 200 35 Z";
-
   return (
     <div
       className="page"
@@ -39,7 +33,7 @@ export default function CameraSetupPage() {
       <div className="card fade-up" style={{ maxWidth: 560, width: "100%" }}>
         <h2 style={{ textAlign: "center", marginBottom: "0.5rem" }}>מיקום מול המצלמה</h2>
         <p style={{ textAlign: "center", color: "var(--ink-soft)", marginBottom: "1.25rem", fontSize: "0.95rem" }}>
-          וודא שהראש והכתפיים שלך נמצאים בתוך המסגרת
+          וודא שהראש שלך נמצא בתוך המסגרת
         </p>
 
         <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", background: "#111", marginBottom: "1.25rem" }}>
@@ -54,17 +48,42 @@ export default function CameraSetupPage() {
             viewBox="0 0 400 300"
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}
           >
+            {/* קונטור ראש אנטומי (לא אובלית/עיגול גיאומטריים) — רק הראש, בלי כתפיים.
+                צבע ירוק קבוע כרגע (משוב ויזואלי סטטי); מעבר ירוק/אדום לפי מיקום בפועל
+                ידרוש זיהוי פנים בזמן אמת, שאינו קיים עדיין בקוד. */}
             <defs>
               <mask id="cutout">
                 <rect width="400" height="300" fill="white" />
-                <path d={silhouette} fill="black" />
+                <path
+                  d="M 200 58
+                     C 155 58 133 95 133 140
+                     C 133 172 143 198 160 218
+                     C 148 228 140 236 136 245
+                     C 160 252 240 252 264 245
+                     C 260 236 252 228 240 218
+                     C 257 198 267 172 267 140
+                     C 267 95 245 58 200 58 Z"
+                  fill="black"
+                />
               </mask>
             </defs>
             <rect width="400" height="300" fill="rgba(0,0,0,0.55)" mask="url(#cutout)" />
-            <path d={silhouette} fill="none" stroke="#3fb950" strokeWidth="3" />
-            <circle cx="200" cy="95" r="4" fill="#3fb950" />
-            <text x="200" y="20" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="13" fontFamily="Heebo, sans-serif">
-              יישר את עצמך עם המסגרת
+            <path
+              d="M 200 58
+                 C 155 58 133 95 133 140
+                 C 133 172 143 198 160 218
+                 C 148 228 140 236 136 245
+                 C 160 252 240 252 264 245
+                 C 260 236 252 228 240 218
+                 C 257 198 267 172 267 140
+                 C 267 95 245 58 200 58 Z"
+              fill="none"
+              stroke="#3fb950"
+              strokeWidth="3"
+            />
+            <circle cx="200" cy="148" r="4" fill="#3fb950" />
+            <text x="200" y="272" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="13" fontFamily="Heebo, sans-serif">
+              יישר את הראש שלך בתוך המסגרת
             </text>
           </svg>
         </div>
