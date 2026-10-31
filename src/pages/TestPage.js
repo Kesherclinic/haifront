@@ -660,6 +660,22 @@ export default function TestPage() {
                 {t(gender, "ענה בקול רם", "עני בקול רם")}
               </span>
             </div>
+
+            {/* כפתור "סיום תשובה" — מופיע בכל מסך שאלה (גם בתרגול, סה"כ 9 מסכים: תרגול + 8
+                תחומים). לחיצה עליו קוראת ל-advanceStep ישירות, כמו שהטיימר עושה כשהזמן נגמר,
+                כדי שנבדק שסיים לענות מוקדם לא יצטרך להמתין לסוף הזמן המוקצב לשלב השאלה. */}
+            <button
+              onClick={advanceStep}
+              style={{
+                marginTop: 4,
+                background: "rgba(79,157,138,0.92)", color: "#fff",
+                border: "none", borderRadius: 10,
+                padding: "12px 30px", fontSize: "1rem", fontWeight: 600,
+                cursor: "pointer", fontFamily: "Heebo, sans-serif"
+              }}
+            >
+              סיום תשובה
+            </button>
           </div>
         )}
 
