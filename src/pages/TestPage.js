@@ -529,7 +529,6 @@ export default function TestPage() {
       if (phase === "baseline" || phase === "baselineOutro") baselineMusicRef.current?.play().catch(() => {});
       if (activeSequence && stepKind === "audio") audioRef.current?.play().catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused]);
 
   if (camError) return (
