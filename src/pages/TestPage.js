@@ -47,6 +47,12 @@ const STEP_KIND  = {
   audio: "audio", blank2: "blank", question: "question", blank3: "blank",
 };
 
+// תוויות בעברית לטבלת הזמנים (timeline) שנשלחת לשרת בסוף הבדיקה
+const STEP_LABELS_HE = {
+  image1: "תמונה 1", fade: "מעבר בין תמונות", image2: "תמונה 2", blank1: "מעבר לפני האודיו",
+  audio: "קטע אודיו", blank2: "מעבר לפני השאלה", question: "שאלה", blank3: "מעבר לתחום הבא",
+};
+
 const REAL_DURATIONS     = { image1: 15, fade: 3, image2: 15, blank1: 10, audio: 41, blank2: 5, question: 35, blank3: 10 };
 const PRACTICE_DURATIONS = { image1: 10, fade: 2, image2: 10, blank1: 5,  audio: 21, blank2: 5,  question: 30, blank3: 5  };
 
@@ -122,6 +128,8 @@ export default function TestPage() {
   const chunksRef        = useRef([]);
   const timerRef         = useRef(null);
   const audioRef         = useRef(null);
+  const timelineRef       = useRef([]);  // לוג מלא: מה הנבדק נחשף אליו, שנייה-שנייה
+  const recordingStartRef = useRef(null); // Date.now() ברגע שההקלטה בפועל התחילה
 
   const activeSequence = phase === "practice" || phase === "domain";
   const stepKey  = activeSequence ? STEP_ORDER[stepIdx] : null;
@@ -169,6 +177,7 @@ export default function TestPage() {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       const fd   = new FormData();
       fd.append("video", blob, "session.webm");
+      fd.append("timeline", JSON.stringify(timelineRef.current));
       try {
         const res = await fetch(`${API}/analyze/${sessionId}`, { method: "POST", body: fd });
         if (!res.ok) throw new Error();
@@ -214,6 +223,8 @@ export default function TestPage() {
   // ── Step 2: subject confirms on the relaxation intro page → recording starts, baseline video+music begin ──
   const confirmRelaxation = useCallback(() => {
     chunksRef.current = [];
+    timelineRef.current = [];
+    recordingStartRef.current = Date.now();
     recorderRef.current?.start(1000);
     setRecording(true);
     setPhase("baseline");
@@ -370,6 +381,42 @@ export default function TestPage() {
     }, 200);
     return () => clearInterval(timerRef.current);
   }, [phase, stepIdx, domainIdx]);
+
+  // ── Timeline log: records exactly what the subject was exposed to, second by
+  //    second, across the whole recording (baseline → practice → all 8 domains).
+  //    Doesn't touch the recording or the step timers at all — it only reads the
+  //    current phase/step/domain and timestamps it against Date.now(), so it stays
+  //    accurate even if a step actually ran shorter/longer than planned (e.g. dev
+  //    skip). Sent to the server alongside the video when the test finishes. ──
+  useEffect(() => {
+    if (!recording || recordingStartRef.current == null) return;
+    const now = (Date.now() - recordingStartRef.current) / 1000;
+    const arr = timelineRef.current;
+    if (arr.length) arr[arr.length - 1].end_sec = +now.toFixed(2);
+
+    let entry = null;
+    if (phase === "baseline") {
+      entry = { phase, label_he: "הרגעה — סרטון מים" };
+    } else if (phase === "baselineOutro") {
+      entry = { phase, label_he: "מעבר רך בסוף ההרגעה" };
+    } else if (phase === "baselineGap") {
+      entry = { phase, label_he: "מסך מעבר לתרגול" };
+    } else if (phase === "practice" || phase === "domain") {
+      const stepKey = STEP_ORDER[stepIdx];
+      const dom = phase === "domain" ? domains[domainIdx] : null;
+      entry = {
+        phase,
+        domain: dom ? dom.id : null,
+        domain_label_he: dom ? dom.label : null,
+        step: stepKey,
+        step_label_he: STEP_LABELS_HE[stepKey] || stepKey,
+      };
+    } else if (phase === "practiceOutro") {
+      entry = { phase, sub_phase: practiceOutroIdx, label_he: "מעבר מהתרגול לבדיקה" };
+    }
+
+    if (entry) arr.push({ start_sec: +now.toFixed(2), end_sec: null, ...entry });
+  }, [phase, stepIdx, domainIdx, practiceOutroIdx, recording, domains]);
 
   // ── Play stimulus audio ──
   useEffect(() => {
