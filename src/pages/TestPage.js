@@ -518,7 +518,7 @@ export default function TestPage() {
         {activeSequence && phase === "practice" && stepKey === "blank1" && (
           <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem" }}>
             <p style={{ fontSize: "1.3rem", textAlign: "center", lineHeight: 1.7, maxWidth: 600, color: "rgba(255,255,255,0.85)", whiteSpace: "pre-line" }}>
-              {"מיד יופעל קטע אודיו.\nקטע זה לא בהכרח מתאר או קשור לתמונות שתראה באותו שלב. אין צורך לחפש קשר ביניהם."}
+              {"מיד יופעל קטע אודיו.\nקטע זה לא בהכרח מתאר או קשור לתמונות שתראה באותו שלב.\nאין צורך לחפש קשר ביניהם."}
             </p>
           </div>
         )}
