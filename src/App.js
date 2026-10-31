@@ -13,16 +13,21 @@ import "./App.css";
 import DevNav from "./components/DevNav";
 
 // ── שער כניסה משותף לבדיקה הפומבית ──
-// שתי סיסמאות שונות:
-// - סיסמת הנבדקים (ACCESS_*): זו שמשותפת ונשלחת בלינק הציבורי. לא מקבלת אופציית skip.
-// - סיסמת המפתח (DEV_*): פותחת גם את אופציית ה-skip (ב-TestPage) דרך דגל ב-sessionStorage.
+// שלוש סיסמאות שונות:
+// - סיסמת הנבדקים (ACCESS_*): זו שמשותפת ונשלחת בלינק הציבורי. לא מקבלת skip/עצירה.
+// - סיסמת המפתח (DEV_*): פותחת את אופציית ה-skip (ב-TestPage) דרך דגל ב-sessionStorage.
+// - סיסמת הסוקרים (REVIEWER_*): לאנשי המקצוע שעוברים על הבדיקה — פותחת גם skip וגם
+//   כפתור עצירה/המשך, ובלי הקלטה/שמירת וידאו בכלל (ראו TestPage / isReviewerMode).
 // נשמר ב-sessionStorage: מי שכבר נכנס פעם אחת בטאב הזה לא יתבקש שוב, אבל טאב/מכשיר חדש כן.
 const ACCESS_USERNAME = "Kesher";
 const ACCESS_PASSWORD = "kesherclinic!1234";
 const DEV_USERNAME    = "Mainkesher";
 const DEV_PASSWORD    = "Mainkesher!1234";
-const ACCESS_STORAGE_KEY = "hai_access_granted";
-const DEV_STORAGE_KEY    = "hai_dev_mode";
+const REVIEWER_USERNAME = "KesherReview";
+const REVIEWER_PASSWORD = "KesherReview!2026";
+const ACCESS_STORAGE_KEY   = "hai_access_granted";
+const DEV_STORAGE_KEY      = "hai_dev_mode";
+const REVIEWER_STORAGE_KEY = "hai_reviewer_mode";
 
 function AccessGate({ children }) {
   const [unlocked, setUnlocked] = useState(
@@ -40,10 +45,17 @@ function AccessGate({ children }) {
     if (name === ACCESS_USERNAME && password === ACCESS_PASSWORD) {
       sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
       sessionStorage.removeItem(DEV_STORAGE_KEY);
+      sessionStorage.removeItem(REVIEWER_STORAGE_KEY);
       setUnlocked(true);
     } else if (name === DEV_USERNAME && password === DEV_PASSWORD) {
       sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
       sessionStorage.setItem(DEV_STORAGE_KEY, "true");
+      sessionStorage.removeItem(REVIEWER_STORAGE_KEY);
+      setUnlocked(true);
+    } else if (name === REVIEWER_USERNAME && password === REVIEWER_PASSWORD) {
+      sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
+      sessionStorage.setItem(REVIEWER_STORAGE_KEY, "true");
+      sessionStorage.removeItem(DEV_STORAGE_KEY);
       setUnlocked(true);
     } else {
       setError("שם משתמש או סיסמה שגויים");
