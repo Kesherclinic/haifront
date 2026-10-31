@@ -54,7 +54,9 @@ const STEP_LABELS_HE = {
 };
 
 const REAL_DURATIONS     = { image1: 15, fade: 3, image2: 15, blank1: 10, audio: 41, blank2: 5, question: 35, blank3: 10 };
-const PRACTICE_DURATIONS = { image1: 10, fade: 2, image2: 10, blank1: 5,  audio: 21, blank2: 5,  question: 30, blank3: 5  };
+const PRACTICE_DURATIONS = { image1: 10, fade: 2, image2: 10, blank1: 10, audio: 21, blank2: 5,  question: 30, blank3: 5  };
+// blank1 בתרגול הוארך מ-5 ל-10 שניות כדי לתת זמן נוח לקרוא את ההערה שמוצגת
+// שם (ראו הרינדור של blank1 בתרגול למטה) — לא משפיע על blank1 בבדיקה האמיתית.
 
 // פיצול 10 שניות ה-blank3 (מסך אחרי שהנבדק מסיים לענות על תחום, בשלב הבדיקה
 // האמיתית בלבד — לא בתרגול) ל-3 תתי-שלבים: שחור / הודעת מעבר / שחור.
@@ -501,9 +503,23 @@ export default function TestPage() {
           />
         )}
 
-        {activeSequence && stepKind === "blank" && !(phase === "domain" && stepKey === "blank3") && (
+        {activeSequence && stepKind === "blank" &&
+          !(phase === "domain" && stepKey === "blank3") &&
+          !(phase === "practice" && stepKey === "blank1") && (
           <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span style={{ fontSize: "2.5rem", color: "rgba(255,255,255,0.5)" }}>+</span>
+          </div>
+        )}
+
+        {/* blank1 בתרגול בלבד (לא בבדיקה האמיתית): במקום מסך "+" ריק, מוצגת כאן
+            הערה שקטע האודיו שעומד להתנגן לא בהכרח מתאר/קשור לתמונות — ממש לפני
+            שהנבדק שומע את זה בפעם הראשונה, כדי שלא ינסה לחפש קשר באמצע הבדיקה
+            האמיתית. מופיע פעם אחת בלבד, לא חוזר שוב בבדיקה. */}
+        {activeSequence && phase === "practice" && stepKey === "blank1" && (
+          <div style={{ width: "100%", height: "100%", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", padding: "3rem" }}>
+            <p style={{ fontSize: "1.3rem", textAlign: "center", lineHeight: 1.7, maxWidth: 600, color: "rgba(255,255,255,0.85)", whiteSpace: "pre-line" }}>
+              {"מיד יופעל קטע אודיו.\nקטע זה לא בהכרח מתאר או קשור לתמונות שתראה באותו שלב. אין צורך לחפש קשר ביניהם."}
+            </p>
           </div>
         )}
 
