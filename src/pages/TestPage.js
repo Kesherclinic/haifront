@@ -122,6 +122,12 @@ export default function TestPage() {
 
   // מצב מפתח — נקבע ב-App.js (שער הכניסה) רק למי שנכנס עם סיסמת המפתח, לא לנבדקים הרגילים
   const [isDevMode] = useState(() => sessionStorage.getItem("hai_dev_mode") === "true");
+  // מצב סוקר/איש מקצוע — נקבע ב-App.js רק למי שנכנס עם סיסמת הסוקרים: מקבל גם דילוג
+  // על שלבים וגם כפתור עצירה/המשך, ובלי הקלטה/שמירת וידאו בכלל (ראו finishTest ואת
+  // ה-useEffect של אתחול המצלמה למטה).
+  const [isReviewerMode] = useState(() => sessionStorage.getItem("hai_reviewer_mode") === "true");
+  // עצירה/המשך זמנית של הבדיקה — רלוונטי רק במצב סוקר (ראה togglePause למטה)
+  const [paused, setPaused] = useState(false);
 
   const streamRef        = useRef(null); // camera MediaStream — independent of any <video> element
   const baselineVideoRef  = useRef(null);
@@ -132,6 +138,24 @@ export default function TestPage() {
   const audioRef         = useRef(null);
   const timelineRef       = useRef([]);  // לוג מלא: מה הנבדק נחשף אליו, שנייה-שנייה
   const recordingStartRef = useRef(null); // Date.now() ברגע שההקלטה בפועל התחילה
+  // תמיכה בעצירה/המשך (מצב סוקר בלבד): pausedRef הוא מקור האמת שבודקים אותו בתוך
+  // setInterval (ref ולא state, כדי להימנע ממרוץ מצבים מול ה-re-render), ו-
+  // pauseAccumRef/pauseStartedAtRef מצטברים כמה זמן אמת חלף בזמן ההשהיה, כדי שנוכל
+  // "להקפיא" טיימרים המבוססים על Date.now() בלי לפגוע בדיוק שלהם כשממשיכים.
+  const pausedRef         = useRef(false);
+  const pauseAccumRef     = useRef(0);
+  const pauseStartedAtRef = useRef(null);
+
+  // כמה מילישניות עברו בסך הכול בהשהיה עד כה (כולל ההשהיה הנוכחית אם היא פעילה) —
+  // כל טיימר מבוסס-Date.now() מחסיר מההפרש שלו את מה שנצטבר מהרגע שהוא התחיל, כך
+  // שזמן שחלף בזמן עצירה לא "נספר" בתוך משך השלב.
+  const getPausedMs = () => {
+    let total = pauseAccumRef.current;
+    if (pausedRef.current && pauseStartedAtRef.current != null) {
+      total += Date.now() - pauseStartedAtRef.current;
+    }
+    return total;
+  };
 
   const activeSequence = phase === "practice" || phase === "domain";
   const stepKey  = activeSequence ? STEP_ORDER[stepIdx] : null;
@@ -153,6 +177,12 @@ export default function TestPage() {
 
   // ── Camera init (permission + recorder are ready long before recording actually starts) ──
   useEffect(() => {
+    // מצב סוקר: אין צורך במצלמה/מיקרופון בכלל — אין הקלטה, אז לא מבקשים הרשאות
+    // ולא יוצרים MediaRecorder. camReady מסומן true ישירות כדי שכפתור "התחל" לא יישאר נעול.
+    if (isReviewerMode) {
+      setCamReady(true);
+      return;
+    }
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(stream => {
         streamRef.current = stream;
@@ -168,11 +198,19 @@ export default function TestPage() {
         )
       ));
     return () => streamRef.current?.getTracks().forEach(tr => tr.stop());
-  }, []);
+  }, [isReviewerMode]);
 
   // ── Finish ──
   const finishTest = useCallback(async () => {
     setPhase("done");
+
+    // מצב סוקר: אין וידאו שהוקלט ואין מה להעלות לשרת — מסיימים מקומית בלי לפנות
+    // ל-/analyze ובלי לנווט לדף העיבוד (שמחכה לסשן אמיתי בפיירבייס עם וידאו).
+    if (isReviewerMode) {
+      streamRef.current?.getTracks().forEach(tr => tr.stop());
+      return;
+    }
+
     setUploading(true);
     const recorder = recorderRef.current;
     recorder.onstop = async () => {
@@ -191,7 +229,7 @@ export default function TestPage() {
     };
     recorder.stop();
     streamRef.current?.getTracks().forEach(tr => tr.stop());
-  }, [sessionId, nav, gender]);
+  }, [sessionId, nav, gender, isReviewerMode]);
 
   // ── Advance to next step / phase ──
   const advanceStep = useCallback(() => {
@@ -227,15 +265,19 @@ export default function TestPage() {
     chunksRef.current = [];
     timelineRef.current = [];
     recordingStartRef.current = Date.now();
-    recorderRef.current?.start(1000);
-    setRecording(true);
+    // מצב סוקר: אין הקלטה בכלל, אז לא מתחילים recorder ולא מסמנים recording=true
+    // (מה שגם משבית אוטומטית את לוג סרגל הזמנים ואת חיווי ה-REC על המסך).
+    if (!isReviewerMode) {
+      recorderRef.current?.start(1000);
+      setRecording(true);
+    }
     setPhase("baseline");
     setSecondsLeft(BASELINE_SEC);
-  }, []);
+  }, [isReviewerMode]);
 
-  // ── DEV: skip current step/phase manually — פעיל רק במצב מפתח (ראה isDevMode) ──
+  // ── DEV / סוקר: דילוג ידני על השלב/פאזה הנוכחית — פעיל במצב מפתח או במצב סוקר ──
   const skipCurrent = useCallback(() => {
-    if (!isDevMode) return;
+    if (!isDevMode && !isReviewerMode) return;
     clearInterval(timerRef.current);
     if (phase === "baseline") {
       setPhase("baselineOutro");
@@ -257,12 +299,34 @@ export default function TestPage() {
         setStepIdx(0);
       }
     }
-  }, [phase, advanceStep, practiceOutroIdx, isDevMode]);
+  }, [phase, advanceStep, practiceOutroIdx, isDevMode, isReviewerMode]);
+
+  // ── סוקר: עצירה/המשך של הבדיקה — פעיל רק במצב סוקר (ראה isReviewerMode) ──
+  const togglePause = useCallback(() => {
+    if (!isReviewerMode) return;
+    setPaused(p => {
+      const next = !p;
+      if (next) {
+        // עוצרים כרגע — מתחילים לספור כמה זמן אמת יעבור עד שההשהיה תבוטל
+        pausedRef.current = true;
+        pauseStartedAtRef.current = Date.now();
+      } else {
+        // ממשיכים — מוסיפים את משך ההשהיה הזו למצטבר הכולל ומתאפסים
+        if (pauseStartedAtRef.current != null) {
+          pauseAccumRef.current += Date.now() - pauseStartedAtRef.current;
+        }
+        pausedRef.current = false;
+        pauseStartedAtRef.current = null;
+      }
+      return next;
+    });
+  }, [isReviewerMode]);
 
   // ── Baseline countdown (הבייסליין הנמדד — 240 שניות נקיות, לא נוגעים) ──
   useEffect(() => {
     if (phase !== "baseline") return;
     timerRef.current = setInterval(() => {
+      if (pausedRef.current) return; // מצב סוקר בהשהיה — לא מתקדמים בטיימר
       setSecondsLeft(s => {
         if (s <= 1) {
           clearInterval(timerRef.current);
@@ -280,6 +344,7 @@ export default function TestPage() {
   useEffect(() => {
     if (phase !== "baselineOutro") return;
     timerRef.current = setInterval(() => {
+      if (pausedRef.current) return; // מצב סוקר בהשהיה — לא מתקדמים בטיימר
       setSecondsLeft(s => {
         if (s <= 1) {
           clearInterval(timerRef.current);
@@ -297,6 +362,7 @@ export default function TestPage() {
   useEffect(() => {
     if (phase !== "baselineGap") return;
     timerRef.current = setInterval(() => {
+      if (pausedRef.current) return; // מצב סוקר בהשהיה — לא מתקדמים בטיימר
       setSecondsLeft(s => {
         if (s <= 1) {
           clearInterval(timerRef.current);
@@ -314,9 +380,11 @@ export default function TestPage() {
   useEffect(() => {
     if (phase !== "practiceOutro") return;
     const start = Date.now();
+    const pausedAtStart = getPausedMs(); // מצב סוקר: כמה זמן השהיה כבר נצבר לפני שהשלב הזה התחיל
     const duration = PRACTICE_OUTRO_DURATIONS[practiceOutroIdx];
     timerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - start) / 1000;
+      const pausedDuringStep = getPausedMs() - pausedAtStart;
+      const elapsed = (Date.now() - start - pausedDuringStep) / 1000;
       if (elapsed >= duration) {
         clearInterval(timerRef.current);
         if (practiceOutroIdx < PRACTICE_OUTRO_DURATIONS.length - 1) {
@@ -370,10 +438,12 @@ export default function TestPage() {
   useEffect(() => {
     if (!activeSequence) return;
     const start = Date.now();
+    const pausedAtStart = getPausedMs(); // מצב סוקר: כמה זמן השהיה כבר נצבר לפני שהשלב הזה התחיל
     const duration = stepDuration;
     setSecondsLeft(duration);
     timerRef.current = setInterval(() => {
-      const elapsed = (Date.now() - start) / 1000;
+      const pausedDuringStep = getPausedMs() - pausedAtStart;
+      const elapsed = (Date.now() - start - pausedDuringStep) / 1000;
       const remaining = Math.max(0, duration - elapsed);
       setSecondsLeft(Math.ceil(remaining));
       if (remaining <= 0) {
@@ -444,6 +514,23 @@ export default function TestPage() {
       audioRef.current = null;
     };
   }, [phase, stepIdx, domainIdx]);
+
+  // ── סוקר: עצירה/המשך בפועל של מדיה שמתנגנת (וידאו/מוזיקת בייסליין, אודיו גירוי) ──
+  // כדי שההשהיה תהיה אמיתית ולא רק "תקפיא" את הטיימר בזמן שהוידאו/אודיו ממשיכים
+  // להתנגן ברקע. פעיל רק כשמשתמש במצב סוקר בפועל לוחץ על כפתור העצירה.
+  useEffect(() => {
+    if (!isReviewerMode) return;
+    if (paused) {
+      baselineVideoRef.current?.pause();
+      baselineMusicRef.current?.pause();
+      audioRef.current?.pause();
+    } else {
+      if (phase === "baseline") baselineVideoRef.current?.play().catch(() => {});
+      if (phase === "baseline" || phase === "baselineOutro") baselineMusicRef.current?.play().catch(() => {});
+      if (activeSequence && stepKind === "audio") audioRef.current?.play().catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused]);
 
   if (camError) return (
     <div className="page">
@@ -602,20 +689,49 @@ export default function TestPage() {
           </div>
         )}
 
-        {/* DEV: skip current step/phase, for testing without waiting for real timers — מוצג רק במצב מפתח */}
-        {isDevMode && (
-        <button
-          onClick={skipCurrent}
-          style={{
-            position: "fixed", bottom: 16, left: 16, zIndex: 20,
-            background: "rgba(31,78,121,0.92)", color: "#fff",
-            border: "1px dashed rgba(255,255,255,0.5)", borderRadius: 8,
-            padding: "8px 14px", fontSize: "0.8rem", fontWeight: 600,
-            cursor: "pointer", fontFamily: "Heebo, sans-serif"
-          }}
-        >
-          ⏭ דלג לשלב הבא (DEV)
-        </button>
+        {/* DEV / סוקר: דילוג על השלב/פאזה הנוכחית, בלי להמתין לטיימר האמיתי — מוצג במצב מפתח או סוקר */}
+        {(isDevMode || isReviewerMode) && (
+        <div style={{ position: "fixed", bottom: 16, left: 16, zIndex: 20, display: "flex", gap: 10 }}>
+          <button
+            onClick={skipCurrent}
+            style={{
+              background: "rgba(31,78,121,0.92)", color: "#fff",
+              border: "1px dashed rgba(255,255,255,0.5)", borderRadius: 8,
+              padding: "8px 14px", fontSize: "0.8rem", fontWeight: 600,
+              cursor: "pointer", fontFamily: "Heebo, sans-serif"
+            }}
+          >
+            ⏭ דלג לשלב הבא
+          </button>
+
+          {/* סוקר בלבד: עצירה/המשך של הבדיקה — עוצר את כל הטיימרים (וגם את הוידאו/אודיו
+              שמתנגנים) כדי לאפשר לאיש המקצוע להתעכב על פרט מסוים; לחיצה נוספת ממשיכה. */}
+          {isReviewerMode && (
+          <button
+            onClick={togglePause}
+            style={{
+              background: paused ? "rgba(63,185,80,0.92)" : "rgba(196,69,54,0.92)", color: "#fff",
+              border: "1px dashed rgba(255,255,255,0.5)", borderRadius: 8,
+              padding: "8px 14px", fontSize: "0.8rem", fontWeight: 600,
+              cursor: "pointer", fontFamily: "Heebo, sans-serif"
+            }}
+          >
+            {paused ? "▶ הפעל בדיקה" : "⏸ עצור בדיקה"}
+          </button>
+          )}
+        </div>
+        )}
+
+        {/* סוקר בלבד: תג ברור במרכז המסך כשהבדיקה בהשהיה, כדי שלא יישאר ספק אם היא פעילה */}
+        {isReviewerMode && paused && (
+        <div style={{
+          position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 20,
+          background: "rgba(196,69,54,0.92)", color: "#fff",
+          padding: "6px 16px", borderRadius: 20, fontSize: "0.85rem", fontWeight: 600,
+          fontFamily: "Heebo, sans-serif"
+        }}>
+          ⏸ הבדיקה מושהתה
+        </div>
         )}
 
         <style>{`
@@ -646,7 +762,7 @@ export default function TestPage() {
               <li>{t(gender, "הגב בטבעיות", "הגיבי בטבעיות")} — אין תשובות נכונות או שגויות</li>
               <li>{t(gender, "אל תנסה לנחש", "אל תנסי לנחש")} מה בודקים בכל שלב</li>
               <li>משך הבדיקה: כ-{Math.round(TOTAL_SEC / 60)} דקות</li>
-              <li>הבדיקה מצולמת ומוקלטת</li>
+              {!isReviewerMode && <li>הבדיקה מצולמת ומוקלטת</li>}
             </ul>
             <div className="divider" />
             <button
