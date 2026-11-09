@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import IntakePage    from "./pages/IntakePage";
+import ConsentPage   from "./pages/ConsentPage";
 import TestPage      from "./pages/TestPage";
 import ProcessingPage from "./pages/ProcessingPage";
 import ResultsPage   from "./pages/ResultsPage";
@@ -115,7 +116,8 @@ export default function App() {
     <BrowserRouter>
       <AccessGate>
         <Routes>
-          <Route path="/"                      element={<IntakePage />} />
+          <Route path="/"                      element={<ConsentPage />} />
+          <Route path="/intake"                element={<IntakePage />} />
           <Route path="/camera-permission/:sessionId" element={<CameraPermissionPage />} />
           <Route path="/camera-setup/:sessionId"    element={<CameraSetupPage />} />
           <Route path="/test/:sessionId"       element={<TestPage />} />
