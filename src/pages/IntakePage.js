@@ -2,12 +2,18 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// שלב 0 — ראו הערה מקבילה ב-TestPage.js / ProcessingPage.js. חייב
+// REACT_APP_API_SHARED_SECRET מוגדר ב-Vercel כ-Config (לא Secret).
+const API_KEY = process.env.REACT_APP_API_SHARED_SECRET || "";
 
 export default function IntakePage() {
   const nav = useNavigate();
   const [form, setForm]       = useState({ name: "", age: "", gender: "", email: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
+  // שלב 0 — קישורים לעמודים פנימיים (היסטוריה/ייבוא/ניתוח-סרטון) מוצגים רק
+  // למי שנכנס עם סיסמת המפתח; שאר העמודים חסומים כעת גם ברמת ה-route (App.js).
+  const isDevMode = sessionStorage.getItem("hai_dev_mode") === "true";
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -19,14 +25,14 @@ export default function IntakePage() {
     try {
       const sRes = await fetch(
         `${API}/subjects?name=${encodeURIComponent(form.name)}&age=${form.age || ""}&notes=${encodeURIComponent(form.email)}&gender=${form.gender}`,
-        { method: "POST" }
+        { method: "POST", headers: { "X-API-Key": API_KEY } }
       );
       if (!sRes.ok) throw new Error("שגיאה ביצירת נבדק");
       const { subject_id } = await sRes.json();
 
       const sessRes = await fetch(
         `${API}/sessions?subject_id=${subject_id}&protocol_version=1.0`,
-        { method: "POST" }
+        { method: "POST", headers: { "X-API-Key": API_KEY } }
       );
       if (!sessRes.ok) throw new Error("שגיאה ביצירת סשן");
       const { session_id } = await sessRes.json();
@@ -48,10 +54,12 @@ export default function IntakePage() {
 
         <nav className="nav">
           <span className="nav-logo">נטיית <span>הלב</span></span>
-          <div className="nav-links">
-            <Link to="/history">היסטוריה</Link><Link to="/import">ייבוא נתונים</Link>
-            <Link to="/upload">ניתוח סרטון</Link>
-          </div>
+          {isDevMode && (
+            <div className="nav-links">
+              <Link to="/history">היסטוריה</Link><Link to="/import">ייבוא נתונים</Link>
+              <Link to="/upload">ניתוח סרטון</Link>
+            </div>
+          )}
         </nav>
 
         <div style={{ marginBottom: "2.5rem" }} className="fade-up">
