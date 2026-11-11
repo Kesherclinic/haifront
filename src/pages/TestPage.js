@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// שלב 0 (אבטחת הבקאנד) — מפתח המשותף עם הבקאנד, נשלח בכל קריאה דרך הדר
+// X-API-Key. חייב להיות מוגדר ב-Vercel כ-REACT_APP_API_SHARED_SECRET מטיפוס
+// Config (לא Secret!), אחרת ה-build לא יטמיע את הערך בקוד בפועל.
+const API_KEY = process.env.REACT_APP_API_SHARED_SECRET || "";
 
 // ── 8 life domains ──
 const DOMAINS = [
@@ -219,7 +223,11 @@ export default function TestPage() {
       fd.append("video", blob, "session.webm");
       fd.append("timeline", JSON.stringify(timelineRef.current));
       try {
-        const res = await fetch(`${API}/analyze/${sessionId}`, { method: "POST", body: fd });
+        const res = await fetch(`${API}/analyze/${sessionId}`, {
+          method: "POST",
+          headers: { "X-API-Key": API_KEY },
+          body: fd,
+        });
         if (!res.ok) throw new Error();
         nav(`/processing/${sessionId}`);
       } catch {

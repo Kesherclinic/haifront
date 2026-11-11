@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// שלב 0 — ראו הערה מקבילה ב-TestPage.js. חייב REACT_APP_API_SHARED_SECRET
+// מוגדר ב-Vercel כ-Config (לא Secret).
+const API_KEY = process.env.REACT_APP_API_SHARED_SECRET || "";
 
 const STAGES = {
   processing:           "מעבד וידאו...",
@@ -27,7 +30,9 @@ export default function ProcessingPage() {
   useEffect(() => {
     const poll = setInterval(async () => {
       try {
-        const res = await fetch(`${API}/sessions/${sessionId}`);
+        const res = await fetch(`${API}/sessions/${sessionId}`, {
+          headers: { "X-API-Key": API_KEY },
+        });
         const data = await res.json();
         setStatus(data);
         if (data.status === "complete") {
