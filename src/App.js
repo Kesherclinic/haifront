@@ -100,6 +100,15 @@ function AccessGate({ children }) {
   );
 }
 
+// שלב 0 — עמודים פנימיים (כלי ניתוח/ייבוא, והיסטוריה שהוחלט לנטוש בשלב זה)
+// שלא מתוחזקים/מעודכנים כרגע עם ה-API key החדש. חוסמים גישה אליהם לכל מי
+// שלא נכנס עם סיסמת המפתח, כדי שנבדק/סוקר רגיל לא ייתקל בהם או בשגיאה שלהם.
+function DevOnlyRoute({ children }) {
+  const isDev = sessionStorage.getItem(DEV_STORAGE_KEY) === "true";
+  if (!isDev) return <Navigate to="/" replace />;
+  return children;
+}
+
 const inputStyle = {
   width: "100%",
   padding: "0.75rem 1rem",
@@ -123,9 +132,9 @@ export default function App() {
           <Route path="/test/:sessionId"       element={<TestPage />} />
           <Route path="/processing/:sessionId" element={<ProcessingPage />} />
           <Route path="/results/:sessionId"    element={<ResultsPage />} />
-          <Route path="/history"               element={<HistoryPage />} />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/upload" element={<UploadAnalysisPage />} />
+          <Route path="/history" element={<DevOnlyRoute><HistoryPage /></DevOnlyRoute>} />
+          <Route path="/import"  element={<DevOnlyRoute><ImportPage /></DevOnlyRoute>} />
+          <Route path="/upload"  element={<DevOnlyRoute><UploadAnalysisPage /></DevOnlyRoute>} />
           <Route path="*"                      element={<Navigate to="/" />} />
         </Routes>
         <DevNav />
