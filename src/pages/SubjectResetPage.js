@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth, usernameToPseudoEmail } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
@@ -43,9 +44,12 @@ export default function SubjectResetPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail || "שגיאה בעדכון הפרטים");
       }
-      // האיפוס שינה גם את ה-"אימייל" הפנימי של המשתמש בפיירבייס — מרעננים
-      // את הטוקן המקומי כדי שהבקשה הבאה תזהה אותו נכון.
-      await user.getIdToken(true);
+      // האיפוס שינה בשרת גם את הסיסמא וגם את ה-"אימייל" הפנימי של המשתמש —
+      // Firebase מבטל אוטומטית את החיבור (הטוקן) הקודם בכל שינוי סיסמא, מטעמי
+      // אבטחה (זה מה שגרם לשגיאת auth/user-token-expired שראינו קודם). לכן
+      // לא מרעננים את הטוקן הישן — מתחברים מחדש, ממש עכשיו, עם שם המשתמש
+      // והסיסמא החדשים שהנבדק בחר, מה שיוצר חיבור תקף מהתחלה.
+      await signInWithEmailAndPassword(auth, usernameToPseudoEmail(newUsername), newPassword);
       nav("/subject/details");
     } catch (e) {
       setError(e.message || "שגיאה בעדכון הפרטים");
