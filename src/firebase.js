@@ -20,14 +20,23 @@ export const db = getFirestore(app);
 // עבור Firestore (db) — אין צורך באף אתחול נוסף.
 export const auth = getAuth(app);
 
-// הופך שם משתמש "אנושי" (למשל hai25001, או שם שהנבדק בחר לעצמו באיפוס)
-// לכתובת ה"פסבדו-אימייל" שבה משתמשים מול Firebase Authentication בפועל —
-// Firebase, ב-Email/Password sign-in, מחייב כתובת בצורת אימייל, גם אם זה
-// לא אימייל אמיתי של אף אחד. התחום hai-subjects.local הוא פיקטיבי בכוונה
-// (הסיומת .local לא קיימת באינטרנט האמיתי) — רק כדי לספק את הפורמט שהשירות
-// דורש, לא כדי לשלוח אליו שום דבר.
+// הופך שם משתמש "אנושי" (למשל hai25001, או שם שהנבדק בחר לעצמו באיפוס,
+// אפילו עם רווח כמו "dana cohen") לכתובת ה"פסבדו-אימייל" שבה משתמשים מול
+// Firebase Authentication בפועל — Firebase, ב-Email/Password sign-in,
+// מחייב כתובת בצורת אימייל, גם אם זה לא אימייל אמיתי של אף אחד, ולא מקבל
+// רווחים או תווים מיוחדים בחלק שלפני ה-@. לכן מחליפים כאן רווחים ב-"_"
+// ומסננים כל תו שאינו אות/ספרה/"_"/"."/"-" — חייב להיות זהה בדיוק לסניטציה
+// שב-main.py (POST /auth/reset), אחרת שם משתמש שעבר כאן סניטציה אחת
+// בהתחברות לא יתאים לכתובת שנשמרה בפיירבייס באיפוס. התחום hai-subjects.local
+// הוא פיקטיבי בכוונה (הסיומת .local לא קיימת באינטרנט האמיתי) — רק כדי
+// לספק את הפורמט שהשירות דורש, לא כדי לשלוח אליו שום דבר.
 export function usernameToPseudoEmail(username) {
-  return `${(username || "").trim().toLowerCase()}@hai-subjects.local`;
+  const sanitized = (username || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_.-]/g, "");
+  return `${sanitized}@hai-subjects.local`;
 }
 
 export default app;
