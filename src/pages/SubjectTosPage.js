@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebaseClient";
+import { auth } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 

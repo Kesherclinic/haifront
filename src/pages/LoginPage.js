@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, usernameToPseudoEmail } from "../firebaseClient";
+import { auth, usernameToPseudoEmail } from "../firebase";
 
 // ── שלב 1: טופס ההתחברות בפועל, גם לכניסה ראשונה (עם השם/סיסמא ששלחנו
 // מראש) וגם לכניסה חוזרת (עם השם/סיסמא שהנבדק בחר לעצמו באיפוס). שני
