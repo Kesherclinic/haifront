@@ -13,6 +13,19 @@ import CameraSetupPage from "./pages/CameraSetupPage";
 import "./App.css";
 import DevNav from "./components/DevNav";
 
+// ── שלב 1 (תוכנית העבודה — אבטחה ופרטיות): זרימת הנבדק האמיתית ──
+// עמודים חדשים — החלפה מלאה לשער הסיסמה המשותפת (AccessGate) מבחינת
+// נבדקים: כל נבדק נכנס עם חשבון אישי משלו ב-Firebase Authentication,
+// במקום סיסמת Kesher המשותפת לכולם. AccessGate לא נמחק — הוא עדיין
+// משמש בדיוק כמו קודם, אבל רק לכלים הפנימיים של הסגל, תחת /staff (ראו
+// למטה), ללא שינוי בהתנהגות שלו.
+import WelcomePage        from "./pages/WelcomePage";
+import LoginPage          from "./pages/LoginPage";
+import SubjectTosPage     from "./pages/SubjectTosPage";
+import SubjectResetPage   from "./pages/SubjectResetPage";
+import SubjectDetailsPage from "./pages/SubjectDetailsPage";
+import SubjectConfirmPage from "./pages/SubjectConfirmPage";
+
 // ── שער כניסה משותף לבדיקה הפומבית ──
 // שלוש סיסמאות שונות:
 // - סיסמת הנבדקים (ACCESS_*): זו שמשותפת ונשלחת בלינק הציבורי. לא מקבלת skip/עצירה.
@@ -123,22 +136,44 @@ const inputStyle = {
 export default function App() {
   return (
     <BrowserRouter>
-      <AccessGate>
-        <Routes>
-          <Route path="/"                      element={<ConsentPage />} />
-          <Route path="/intake"                element={<IntakePage />} />
-          <Route path="/camera-permission/:sessionId" element={<CameraPermissionPage />} />
-          <Route path="/camera-setup/:sessionId"    element={<CameraSetupPage />} />
-          <Route path="/test/:sessionId"       element={<TestPage />} />
-          <Route path="/processing/:sessionId" element={<ProcessingPage />} />
-          <Route path="/results/:sessionId"    element={<ResultsPage />} />
-          <Route path="/history" element={<DevOnlyRoute><HistoryPage /></DevOnlyRoute>} />
-          <Route path="/import"  element={<DevOnlyRoute><ImportPage /></DevOnlyRoute>} />
-          <Route path="/upload"  element={<DevOnlyRoute><UploadAnalysisPage /></DevOnlyRoute>} />
-          <Route path="*"                      element={<Navigate to="/" />} />
-        </Routes>
-        <DevNav />
-      </AccessGate>
+      <Routes>
+        {/* ── זרימת הנבדק האמיתית (שלב 1) — ציבורית, בלי שער סיסמה משותפת ── */}
+        <Route path="/"              element={<WelcomePage />} />
+        <Route path="/login"         element={<LoginPage />} />
+        <Route path="/subject/tos"      element={<SubjectTosPage />} />
+        <Route path="/subject/reset"    element={<SubjectResetPage />} />
+        <Route path="/subject/details"  element={<SubjectDetailsPage />} />
+        <Route path="/subject/confirm"  element={<SubjectConfirmPage />} />
+
+        {/* ── זרימת הבדיקה עצמה — משותפת לנבדקים (מהזרימה החדשה למעלה) ──
+            וגם לסגל (מהזרימה הישנה תחת /staff למטה). לא שונתה בכלל. */}
+        <Route path="/camera-permission/:sessionId" element={<CameraPermissionPage />} />
+        <Route path="/camera-setup/:sessionId"      element={<CameraSetupPage />} />
+        <Route path="/test/:sessionId"              element={<TestPage />} />
+        <Route path="/processing/:sessionId"        element={<ProcessingPage />} />
+        <Route path="/results/:sessionId"           element={<ResultsPage />} />
+
+        {/* ── כלי סגל — בדיוק כמו קודם (סיסמת Kesher/Mainkesher/KesherReview),
+            רק שהועברו מ-"/" ל-"/staff" כדי לפנות את "/" לעמוד הבית החדש של
+            הנבדקים. לא נוגעים בלוגיקה הפנימית שלהם. ── */}
+        <Route
+          path="/staff/*"
+          element={
+            <AccessGate>
+              <Routes>
+                <Route path=""        element={<ConsentPage />} />
+                <Route path="intake"  element={<IntakePage />} />
+                <Route path="history" element={<DevOnlyRoute><HistoryPage /></DevOnlyRoute>} />
+                <Route path="import"  element={<DevOnlyRoute><ImportPage /></DevOnlyRoute>} />
+                <Route path="upload"  element={<DevOnlyRoute><UploadAnalysisPage /></DevOnlyRoute>} />
+              </Routes>
+              <DevNav />
+            </AccessGate>
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
     </BrowserRouter>
   );
 }
