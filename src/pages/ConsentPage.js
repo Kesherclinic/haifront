@@ -22,14 +22,14 @@ export default function ConsentPage() {
     sessionStorage.getItem("hai_reviewer_mode") === "true";
 
   useEffect(() => {
-    if (isStaff) nav("/intake", { replace: true });
+    if (isStaff) nav("/staff/intake", { replace: true });
   }, [isStaff, nav]);
 
   if (isStaff) return null;
 
   const proceed = () => {
     if (!agreed) return;
-    nav("/intake");
+    nav("/staff/intake");
   };
 
   return (
