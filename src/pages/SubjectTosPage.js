@@ -10,6 +10,12 @@ const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 // לשרת את זרימת הסגל ב-/staff ולא נוגעים בו) — אותו טקסט placeholder,
 // עד שינוסח הטקסט המשפטי הסופי (שלב 4 בתוכנית העבודה).
 //
+// שלב 4 (המשך): לפני התיקון הזה, לחיצה על "אני מסכים/ה" הייתה רק UI — שום
+// רשומה לא נשמרה בשום מקום. עכשיו הלחיצה שולחת POST ל-/subjects/me/consent,
+// שיוצר רשומת הסכמה חדשה ב-Firestore (subject_id + מתי + לאיזה נוסח) — פעם
+// אחת לכל לחיצה, כי המסך הזה מוצג בכל התחברות ולא רק בראשונה. זה קורה
+// *לפני* הפנייה ל-/auth/me, כדי שההסכמה תתועד גם אם משהו נכשל בניווט שאחרי.
+//
 // אחרי האישור, פונים ל-GET /auth/me כדי לדעת לאן לנתב את הנבדק:
 //   needs_reset           → מסך איפוס שם משתמש+סיסמא (זהו תמיד נבדק חדש)
 //   needs_reset=False
@@ -29,9 +35,21 @@ export default function SubjectTosPage() {
       const user = auth.currentUser;
       if (!user) { nav("/login?mode=signin", { replace: true }); return; }
       const idToken = await user.getIdToken();
-      const res = await fetch(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
+      const headers = { Authorization: `Bearer ${idToken}` };
+
+      // תיעוד ההסכמה בפועל — ראו הערה בראש הקובץ. נכשל בשקט (לא חוסם את
+      // המשך הזרימה) אם הרישום עצמו נכשל, כדי שבעיית תיעוד לא תעצור נבדק
+      // מלהמשיך לבדיקה — אבל כן מנסים, בכל לחיצה.
+      try {
+        await fetch(`${API}/subjects/me/consent?policy_version=1.0`, {
+          method: "POST",
+          headers,
+        });
+      } catch (ce) {
+        console.error("Failed to record consent:", ce);
+      }
+
+      const res = await fetch(`${API}/auth/me`, { headers });
       if (!res.ok) throw new Error("שגיאה בבדיקת מצב החשבון");
       const data = await res.json();
 
