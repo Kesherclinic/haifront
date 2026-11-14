@@ -1,12 +1,19 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 
+// ── שלב 1 (תוכנית העבודה — אבטחה ופרטיות), השלמה ──
+// שני הנתיבים הראשונים (פרטי נבדק / היסטוריה) עודכנו מ-"/" ו-"/history"
+// ל-"/staff/intake" ו-"/staff/history" — אחרי שכלי הסגל הועברו תחת "/staff"
+// (ראו App.js). בלי העדכון הזה, הקישורים האלה נפלו לנתיב שלא קיים יותר,
+// ו-App.js ניתב אותם אוטומטית לעמוד הבית של הנבדקים ("*" -> Navigate to "/").
+// "/test/DEMO", "/processing/DEMO", "/results/DEMO" נשארו ללא שינוי — אלה
+// עדיין נתיבים משותפים ברמה העליונה (לא עברו תחת /staff).
 const PAGES = [
-  { path: "/",                label: "פרטי נבדק" },
+  { path: "/staff/intake",    label: "פרטי נבדק" },
   { path: "/test/DEMO",       label: "בדיקה" },
   { path: "/processing/DEMO", label: "עיבוד" },
   { path: "/results/DEMO",    label: "תוצאות" },
-  { path: "/history",         label: "היסטוריה" },
+  { path: "/staff/history",   label: "היסטוריה" },
 ];
 
 export default function DevNav() {
@@ -18,7 +25,14 @@ export default function DevNav() {
   const [hR, setHR] = useState(false);
 
   const pages = PAGES.map(p => ({ ...p, path: p.path.replace("DEMO", sessionId) }));
-  const idx = pages.findIndex(p => p.path.split("/")[1] === location.pathname.split("/")[1]);
+  // זיהוי "באיזה עמוד אנחנו" חייב עכשיו שני מקטעים כשהנתיב מתחיל ב-"/staff"
+  // (למשל "staff/intake" מול "staff/history") — מקטע ראשון בלבד (כמו קודם)
+  // היה הופך את כל עמודי הסגל לאותו "עמוד" ומבלבל את חיצי הקודם/הבא.
+  const keyOf = (path) => {
+    const parts = path.split("/").filter(Boolean);
+    return parts[0] === "staff" ? parts.slice(0, 2).join("/") : (parts[0] || "");
+  };
+  const idx = pages.findIndex(p => keyOf(p.path) === keyOf(location.pathname));
 
   const goNext = () => { if (idx < pages.length - 1) nav(pages[idx + 1].path); };
   const goPrev = () => { if (idx > 0) nav(pages[idx - 1].path); };
