@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { auth } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
@@ -15,18 +16,46 @@ export default function HistoryPage() {
   const [subjects, setSubjects]   = useState({});
   const [loading,  setLoading]    = useState(true);
   const [search,   setSearch]     = useState("");
+  const [error,    setError]      = useState("");
 
+  // ── שלב 2.3 (תוכנית העבודה — אבטחה ופרטיות) ──
+  // GET /sessions ו-GET /subjects (רשימה מלאה, בלי סינון) דורשים כעת באמת
+  // חשבון admin ב-Firebase, לא רק את ה-API Key המשותף (ראו main.py,
+  // verify_admin_token) — כי הם חושפים נתונים על *כל* הנבדקים. מי שמגיע
+  // לעמוד הזה כבר עבר את AccessGate ב-App.js (כלומר כבר מחובר כ-admin),
+  // אז פשוט לוקחים את הטוקן של המשתמש המחובר כרגע ושולחים אותו כ-
+  // Authorization: Bearer. בעבר העמוד הזה לא שלח שום הדר אימות וממילא לא
+  // עבד מול השרת — זה התיקון הראשון שמחזיר אותו לעבוד, לא רגרסיה.
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/sessions`).then(r => r.json()),
-      fetch(`${API}/subjects`).then(r => r.json()),
-    ]).then(([sess, subs]) => {
-      setSessions(sess || []);
-      const subMap = {};
-      (subs || []).forEach(s => { subMap[s.id] = s; });
-      setSubjects(subMap);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    (async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          setError("יש להתחבר מחדש כ-admin כדי לראות היסטוריה.");
+          setLoading(false);
+          return;
+        }
+        const idToken = await user.getIdToken();
+        const headers = { Authorization: `Bearer ${idToken}` };
+
+        const [sessRes, subsRes] = await Promise.all([
+          fetch(`${API}/sessions`, { headers }),
+          fetch(`${API}/subjects`, { headers }),
+        ]);
+        if (!sessRes.ok || !subsRes.ok) throw new Error("שגיאה בטעינת ההיסטוריה");
+
+        const sess = await sessRes.json();
+        const subs = await subsRes.json();
+        setSessions(sess || []);
+        const subMap = {};
+        (subs || []).forEach(s => { subMap[s.id] = s; });
+        setSubjects(subMap);
+      } catch (e) {
+        setError("לא הצלחנו לטעון את ההיסטוריה. נסה/י לרענן את העמוד.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const filtered = sessions.filter(s => {
@@ -45,8 +74,8 @@ export default function HistoryPage() {
       <div className="container">
 
         <nav className="nav">
-          <Link className="nav-logo" to="/">נטיית <span>הלב</span></Link>
-          <Link className="btn btn-primary" to="/" style={{ padding: "8px 20px", fontSize: "0.9rem" }}>
+          <Link className="nav-logo" to="/staff">נטיית <span>הלב</span></Link>
+          <Link className="btn btn-primary" to="/staff" style={{ padding: "8px 20px", fontSize: "0.9rem" }}>
             + בדיקה חדשה
           </Link>
         </nav>
@@ -66,12 +95,16 @@ export default function HistoryPage() {
           <div style={{ textAlign: "center", padding: "3rem" }}>
             <div className="spinner" style={{ margin: "0 auto" }} />
           </div>
+        ) : error ? (
+          <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
+            <p style={{ color: "var(--coral)" }}>{error}</p>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
             <p style={{ marginBottom: "1rem" }}>
               {search ? "לא נמצאו תוצאות לחיפוש זה" : "אין בדיקות עדיין"}
             </p>
-            <Link className="btn btn-primary" to="/">התחל בדיקה ראשונה</Link>
+            <Link className="btn btn-primary" to="/staff">התחל בדיקה ראשונה</Link>
           </div>
         ) : (
           <div className="fade-up fade-up-delay-1">
