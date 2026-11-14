@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { auth } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
-// שלב 0 — ראו הערה מקבילה ב-TestPage.js. חייב REACT_APP_API_SHARED_SECRET
-// מוגדר ב-Vercel כ-Config (לא Secret).
-const API_KEY = process.env.REACT_APP_API_SHARED_SECRET || "";
+// שלב 2.4/2.5 (תוכנית העבודה — אבטחה ופרטיות): GET /sessions/{id} דורש כעת
+// טוקן אמיתי (נבדק או admin) ובודק בעלות על הסשן הספציפי הזה — ראו main.py,
+// verify_subject_or_admin_token. קודם העמוד הזה לא שלח שום הדר אימות כלל,
+// כלומר כל הקריאה הזו הייתה נכשלת (401) בלי שמישהו שם לב — מצב ניתוח
+// ביומטרי מושבת כרגע ולכן זה לא היה בולט (הסטטוס פשוט נשאר "מעבד..." לנצח
+// בכל מקרה, גם לפני התיקון). עדיין מתקנים כדי שהעמוד יעבוד נכון כשהניתוח
+// יופעל בחזרה בעתיד.
 
 const STAGES = {
   processing:           "מעבד וידאו...",
@@ -30,21 +35,17 @@ export default function ProcessingPage() {
   useEffect(() => {
     const poll = setInterval(async () => {
       try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) return; // לא מחובר — נדלג על הטיק הזה, ננסה שוב בעוד 2 שניות
         const res = await fetch(`${API}/sessions/${sessionId}`, {
-          headers: { "X-API-Key": API_KEY },
+          headers: { Authorization: `Bearer ${idToken}` },
         });
+        if (!res.ok) return; // 401/403/404 — לא זוכים לעדכון בטיק הזה
         const data = await res.json();
         setStatus(data);
         if (data.status === "complete") {
           clearInterval(poll);
           setTimeout(() => nav(`/results/${sessionId}`), 800);
-        }
-        // "recorded" = גרסת "הקלטה בלבד" הנוכחית של השרת: הסרטון נשמר והועלה
-        // בהצלחה, אבל שלב הניתוח הביומטרי (שהיה מעדכן ל-"complete") מושבת
-        // בכוונה כרגע. לכן לא ממשיכים לדף תוצאות שעדיין לא קיים — מציגים
-        // מסך סיום/תודה במקום, ומפסיקים לבדוק (polling) כי אין למה לחכות עוד.
-        if (data.status === "recorded") {
-          clearInterval(poll);
         }
         if (data.status === "error") {
           clearInterval(poll);
@@ -68,13 +69,6 @@ export default function ProcessingPage() {
               <h2 style={{ marginBottom: "0.75rem" }}>שגיאה בניתוח</h2>
               <p style={{ marginBottom: "1.5rem" }}>{status.error || "אירעה שגיאה בעיבוד הוידאו"}</p>
               <button className="btn btn-secondary" onClick={() => nav("/")}>חזור להתחלה</button>
-            </>
-          ) : status.status === "recorded" ? (
-            <>
-              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>✓</div>
-              <h2 style={{ marginBottom: "0.75rem" }}>תודה רבה!</h2>
-              <p style={{ marginBottom: "0.5rem" }}>הבדיקה הושלמה בהצלחה.</p>
-              <p style={{ color: "var(--ink-muted)" }}>ניתן לסגור את החלון כעת.</p>
             </>
           ) : (
             <>

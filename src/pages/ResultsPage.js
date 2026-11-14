@@ -4,8 +4,16 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell
 } from "recharts";
+import { auth } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
+// שלב 2.4/2.5 (תוכנית העבודה — אבטחה ופרטיות): שלושת ה-GET כאן
+// (conclusions/results/sessions) דורשים כעת טוקן אמיתי (נבדק או admin) ובודקים
+// בעלות על הסשן הספציפי הזה — ראו main.py, verify_subject_or_admin_token.
+// קודם העמוד הזה לא שלח שום הדר אימות כלל (כל הקריאות היו נכשלות 401 בלי
+// שמישהו שם לב, כי בלי ניתוח ביומטרי פעיל אין גם מסקנה/תוצאות לשלוף בכל מקרה
+// — העמוד הציג את מסך "לא נמצאו תוצאות" באותה מידה). מתקנים כדי שהעמוד יעבוד
+// נכון כשהניתוח יופעל בחזרה.
 
 const DOMAIN_LABELS = {
   art:                   "אומנות",
@@ -34,17 +42,26 @@ export default function ResultsPage() {
   const [session,    setSession]    = useState(null);
   const [loading,    setLoading]    = useState(true);
 
+  // מצב מפתח — כדי לדעת אם מי שצופה הוא איש סגל (ולנתב אותו בחזרה ל-/staff,
+  // לא לעמוד הבית של הנבדקים) — ראו הערה דומה ב-IntakePage.js/DevNav.js.
+  const isDevMode = sessionStorage.getItem("hai_dev_mode") === "true";
+  const homeLink    = isDevMode ? "/staff" : "/";
+  const historyLink = isDevMode ? "/staff/history" : "/";
+
   useEffect(() => {
-    Promise.all([
-      fetch(`${API}/conclusions/${sessionId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/results/${sessionId}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/sessions/${sessionId}`).then(r => r.ok ? r.json() : null),
-    ]).then(([c, r, s]) => {
+    (async () => {
+      const idToken = await auth.currentUser?.getIdToken();
+      const headers = idToken ? { Authorization: `Bearer ${idToken}` } : {};
+      const [c, r, s] = await Promise.all([
+        fetch(`${API}/conclusions/${sessionId}`, { headers }).then(res => res.ok ? res.json() : null),
+        fetch(`${API}/results/${sessionId}`, { headers }).then(res => res.ok ? res.json() : null),
+        fetch(`${API}/sessions/${sessionId}`, { headers }).then(res => res.ok ? res.json() : null),
+      ]);
       setConclusion(c);
       setResults(r);
       setSession(s);
       setLoading(false);
-    });
+    })();
   }, [sessionId]);
 
   if (loading) return (
@@ -60,7 +77,7 @@ export default function ResultsPage() {
       <div className="container">
         <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
           <p style={{ marginBottom: "1rem" }}>לא נמצאו תוצאות לסשן זה.</p>
-          <Link className="btn btn-secondary" to="/">חזור להתחלה</Link>
+          <Link className="btn btn-secondary" to={homeLink}>חזור להתחלה</Link>
         </div>
       </div>
     </div>
@@ -84,9 +101,9 @@ export default function ResultsPage() {
 
         {/* Nav */}
         <nav className="nav">
-          <Link className="nav-logo" to="/">נטיית <span>הלב</span></Link>
+          <Link className="nav-logo" to={homeLink}>נטיית <span>הלב</span></Link>
           <div className="nav-links">
-            <Link to="/history">כל הסשנים</Link>
+            <Link to={historyLink}>כל הסשנים</Link>
             <button className="btn btn-secondary" style={{ padding: "6px 14px", fontSize: "0.85rem" }}
               onClick={() => window.print()}>⬇ הורד PDF</button>
           </div>
@@ -244,8 +261,8 @@ export default function ResultsPage() {
 
         {/* Actions */}
         <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginBottom: "2rem" }}>
-          <Link className="btn btn-secondary" to="/">בדיקה חדשה</Link>
-          <Link className="btn btn-primary" to="/history">כל הסשנים</Link>
+          <Link className="btn btn-secondary" to={homeLink}>בדיקה חדשה</Link>
+          <Link className="btn btn-primary" to={historyLink}>כל הסשנים</Link>
         </div>
 
       </div>

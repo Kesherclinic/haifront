@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { auth } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
-// שלב 0 (אבטחת הבקאנד) — מפתח המשותף עם הבקאנד, נשלח בכל קריאה דרך הדר
-// X-API-Key. חייב להיות מוגדר ב-Vercel כ-REACT_APP_API_SHARED_SECRET מטיפוס
-// Config (לא Secret!), אחרת ה-build לא יטמיע את הערך בקוד בפועל.
-const API_KEY = process.env.REACT_APP_API_SHARED_SECRET || "";
+// שלב 2.4/2.5 (תוכנית העבודה — אבטחה ופרטיות): /analyze/{session_id} כבר לא
+// מקבל את ה-API Key המשותף — הוא דורש טוקן אמיתי (נבדק או admin) ובודק שה-uid
+// שבטוקן הוא באמת ה-subject_id של הסשן הזה (ראו main.py,
+// verify_subject_or_admin_token + _require_owner_or_admin). מי שמריץ את
+// הבדיקה הזו (נבדק אמיתי שהתחבר, או admin שבודק ב-/staff) כבר מחובר ב-
+// Firebase Authentication ברגע הזה, אז פשוט לוקחים את הטוקן שלו.
 
 // ── 8 life domains ──
 const DOMAINS = [
@@ -223,9 +226,12 @@ export default function TestPage() {
       fd.append("video", blob, "session.webm");
       fd.append("timeline", JSON.stringify(timelineRef.current));
       try {
+        // שלב 2.4/2.5: טוקן אמיתי של מי שמחובר כרגע (הנבדק עצמו, או ה-admin
+        // אם זו בדיקת סגל) במקום ה-API Key המשותף — ראו הערה בראש הקובץ.
+        const idToken = await auth.currentUser?.getIdToken();
         const res = await fetch(`${API}/analyze/${sessionId}`, {
           method: "POST",
-          headers: { "X-API-Key": API_KEY },
+          headers: { Authorization: `Bearer ${idToken}` },
           body: fd,
         });
         if (!res.ok) throw new Error();

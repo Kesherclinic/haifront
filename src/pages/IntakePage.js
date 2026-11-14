@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { auth } from "../firebase";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:8000";
-// שלב 0 — ראו הערה מקבילה ב-TestPage.js / ProcessingPage.js. חייב
-// REACT_APP_API_SHARED_SECRET מוגדר ב-Vercel כ-Config (לא Secret).
-const API_KEY = process.env.REACT_APP_API_SHARED_SECRET || "";
+// שלב 2.3 (תוכנית העבודה — אבטחה ופרטיות): העמוד הזה נגיש רק דרך /staff
+// (אחרי AccessGate), אז מי שמגיע לכאן כבר מחובר כ-admin אמיתי ב-Firebase.
+// במקום ה-API Key המשותף (שהוחלף עכשיו גם בשרת ב-verify_admin_token —
+// ראו main.py), שולחים את הטוקן האמיתי של ה-admin המחובר.
 
 export default function IntakePage() {
   const nav = useNavigate();
@@ -23,16 +25,19 @@ export default function IntakePage() {
     setLoading(true); setError("");
 
     try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const headers = { Authorization: `Bearer ${idToken}` };
+
       const sRes = await fetch(
         `${API}/subjects?name=${encodeURIComponent(form.name)}&age=${form.age || ""}&notes=${encodeURIComponent(form.email)}&gender=${form.gender}`,
-        { method: "POST", headers: { "X-API-Key": API_KEY } }
+        { method: "POST", headers }
       );
       if (!sRes.ok) throw new Error("שגיאה ביצירת נבדק");
       const { subject_id } = await sRes.json();
 
       const sessRes = await fetch(
         `${API}/sessions?subject_id=${subject_id}&protocol_version=1.0`,
-        { method: "POST", headers: { "X-API-Key": API_KEY } }
+        { method: "POST", headers }
       );
       if (!sessRes.ok) throw new Error("שגיאה ביצירת סשן");
       const { session_id } = await sessRes.json();
@@ -56,8 +61,8 @@ export default function IntakePage() {
           <span className="nav-logo">נטיית <span>הלב</span></span>
           {isDevMode && (
             <div className="nav-links">
-              <Link to="/history">היסטוריה</Link><Link to="/import">ייבוא נתונים</Link>
-              <Link to="/upload">ניתוח סרטון</Link>
+              <Link to="/staff/history">היסטוריה</Link><Link to="/staff/import">ייבוא נתונים</Link>
+              <Link to="/staff/upload">ניתוח סרטון</Link>
             </div>
           )}
         </nav>
