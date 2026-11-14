@@ -16,63 +16,65 @@ import DevNav from "./components/DevNav";
 // ── שלב 1 (תוכנית העבודה — אבטחה ופרטיות): זרימת הנבדק האמיתית ──
 // עמודים חדשים — החלפה מלאה לשער הסיסמה המשותפת (AccessGate) מבחינת
 // נבדקים: כל נבדק נכנס עם חשבון אישי משלו ב-Firebase Authentication,
-// במקום סיסמת Kesher המשותפת לכולם. AccessGate לא נמחק — הוא עדיין
-// משמש בדיוק כמו קודם, אבל רק לכלים הפנימיים של הסגל, תחת /staff (ראו
-// למטה), ללא שינוי בהתנהגות שלו.
+// במקום סיסמת Kesher המשותפת לכולם. AccessGate נשאר קיים ומשמש רק לכלים
+// הפנימיים של הסגל, תחת /staff (ראו למטה) — אבל גם הוא עצמו עודכן (ראו
+// ההערה ליד AccessGate): הוא כבר לא בודק שלוש סיסמאות מקודדות, אלא
+// מתחבר אמיתית מול Firebase ובודק role=admin.
 import WelcomePage        from "./pages/WelcomePage";
 import LoginPage          from "./pages/LoginPage";
 import SubjectTosPage     from "./pages/SubjectTosPage";
 import SubjectResetPage   from "./pages/SubjectResetPage";
 import SubjectDetailsPage from "./pages/SubjectDetailsPage";
 import SubjectConfirmPage from "./pages/SubjectConfirmPage";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { auth } from "./firebase";
 
-// ── שער כניסה משותף לבדיקה הפומבית ──
-// שלוש סיסמאות שונות:
-// - סיסמת הנבדקים (ACCESS_*): זו שמשותפת ונשלחת בלינק הציבורי. לא מקבלת skip/עצירה.
-// - סיסמת המפתח (DEV_*): פותחת את אופציית ה-skip (ב-TestPage) דרך דגל ב-sessionStorage.
-// - סיסמת הסוקרים (REVIEWER_*): לאנשי המקצוע שעוברים על הבדיקה — פותחת גם skip וגם
-//   כפתור עצירה/המשך, ובלי הקלטה/שמירת וידאו בכלל (ראו TestPage / isReviewerMode).
-// נשמר ב-sessionStorage: מי שכבר נכנס פעם אחת בטאב הזה לא יתבקש שוב, אבל טאב/מכשיר חדש כן.
-const ACCESS_USERNAME = "Kesher";
-const ACCESS_PASSWORD = "kesherclinic!1234";
-const DEV_USERNAME    = "Mainkesher";
-const DEV_PASSWORD    = "Mainkesher!1234";
-const REVIEWER_USERNAME = "KesherReview";
-const REVIEWER_PASSWORD = "KesherReview!2026";
-const ACCESS_STORAGE_KEY   = "hai_access_granted";
-const DEV_STORAGE_KEY      = "hai_dev_mode";
-const REVIEWER_STORAGE_KEY = "hai_reviewer_mode";
+// ── שער כניסה לסגל — עודכן (שלב 1, השלמה) ──
+// במקום שלוש סיסמאות מקודדות (Kesher/Mainkesher/KesherReview), יש עכשיו
+// חשבון Firebase אמיתי אחד בלבד (ראו create_admin_account.py) עם custom
+// claim role="admin". Kesher (הגישה הציבורית הישנה) ו-KesherReview (מצב
+// סוקר) הוסרו לגמרי לפי החלטה — נשאר רק Mainkesher, באותה התנהגות בדיוק
+// כמו היום (skip מופעל, וידאו כן נשמר): ברגע שההתחברות מצליחה ומאומת
+// role=admin, מסמנים את אותם דגלי sessionStorage שהיו קיימים קודם
+// (hai_access_granted, hai_dev_mode) — כך שכל שאר הקוד שכבר קורא את
+// הדגלים האלה (IntakePage, TestPage, DevNav, DevOnlyRoute למטה) ממשיך
+// לעבוד בדיוק כמו שהוא, בלי שום שינוי נוסף.
+// hai_reviewer_mode לא נקרא יותר משום מקום חדש, אבל לא הסרתי את הקוד שבודק
+// אותו ב-TestPage.js — הוא פשוט הופך לקוד מת (אף אחד לא יכול להפעיל אותו
+// יותר), כדי לא לגעת בקובץ הגדול והמורכב הזה בלי צורך אמיתי.
+const ACCESS_STORAGE_KEY = "hai_access_granted";
+const DEV_STORAGE_KEY    = "hai_dev_mode";
 
 function AccessGate({ children }) {
   const [unlocked, setUnlocked] = useState(
     () => sessionStorage.getItem(ACCESS_STORAGE_KEY) === "true"
   );
-  const [username, setUsername] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
 
   if (unlocked) return children;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const name = username.trim();
-    if (name === ACCESS_USERNAME && password === ACCESS_PASSWORD) {
-      sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
-      sessionStorage.removeItem(DEV_STORAGE_KEY);
-      sessionStorage.removeItem(REVIEWER_STORAGE_KEY);
-      setUnlocked(true);
-    } else if (name === DEV_USERNAME && password === DEV_PASSWORD) {
-      sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
-      sessionStorage.setItem(DEV_STORAGE_KEY, "true");
-      sessionStorage.removeItem(REVIEWER_STORAGE_KEY);
-      setUnlocked(true);
-    } else if (name === REVIEWER_USERNAME && password === REVIEWER_PASSWORD) {
-      sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
-      sessionStorage.setItem(REVIEWER_STORAGE_KEY, "true");
-      sessionStorage.removeItem(DEV_STORAGE_KEY);
-      setUnlocked(true);
-    } else {
-      setError("שם משתמש או סיסמה שגויים");
+    setLoading(true);
+    setError("");
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const tokenResult = await cred.user.getIdTokenResult();
+      if (tokenResult.claims.role === "admin") {
+        sessionStorage.setItem(ACCESS_STORAGE_KEY, "true");
+        sessionStorage.setItem(DEV_STORAGE_KEY, "true");
+        setUnlocked(true);
+      } else {
+        await signOut(auth); // לא admin — לא משאירים אותו מחובר בטעות
+        setError("לחשבון הזה אין הרשאת גישה");
+        setLoading(false);
+      }
+    } catch (err) {
+      setError("אימייל או סיסמה שגויים");
+      setLoading(false);
     }
   };
 
@@ -83,10 +85,10 @@ function AccessGate({ children }) {
           <h2 style={{ marginBottom: "1.5rem", textAlign: "center" }}>כניסה לבדיקה</h2>
           <form onSubmit={handleSubmit}>
             <input
-              type="text"
-              placeholder="שם משתמש"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              placeholder="אימייל"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               autoFocus
               style={inputStyle}
             />
@@ -103,8 +105,8 @@ function AccessGate({ children }) {
               </p>
             )}
             <div className="divider" />
-            <button type="submit" className="btn btn-primary btn-lg btn-full">
-              כניסה
+            <button type="submit" className="btn btn-primary btn-lg btn-full" disabled={loading}>
+              {loading ? "מתחבר/ת..." : "כניסה"}
             </button>
           </form>
         </div>
